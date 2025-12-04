@@ -15,6 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -31,74 +32,41 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // ========================================
-                        // ENDPOINTS PÚBLICOS (sin autenticación)
-                        // ========================================
+                        // Endpoints públicos
                         .requestMatchers(
-                                // Tests de evaluación (públicos para que cualquiera pueda verlos)
                                 "/api/v1/evaluations/personality-test",
                                 "/api/v1/evaluations/vocational-interests-test",
                                 "/api/v1/evaluations/cognitive-skills-test",
-                                // Actuator (health checks para Eureka)
                                 "/actuator/**",
-                                // Swagger/OpenAPI
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
 
-                        // ========================================
-                        // CAREERS - Endpoints con acceso mixto
-                        // ========================================
-                        // GET /api/v1/careers - Todos los roles autenticados
+                        // Careers - Endpoints con acceso mixto
                         .requestMatchers("GET", "/api/v1/careers").authenticated()
-
-                        // GET /api/v1/careers/{id} - Todos los roles autenticados
                         .requestMatchers("GET", "/api/v1/careers/{careerId}").authenticated()
-
-                        // GET /api/v1/careers/details/{id} - Todos los roles autenticados
                         .requestMatchers("GET", "/api/v1/careers/details/{careerId}").authenticated()
-
-                        // POST /api/v1/careers/recommendations - Solo UNIVERSITY_STUDENT
                         .requestMatchers("POST", "/api/v1/careers/recommendations").hasRole("UNIVERSITY_STUDENT")
-
-                        // POST /api/v1/careers (crear) - Solo ADMIN
                         .requestMatchers("POST", "/api/v1/careers").hasRole("ADMIN")
-
-                        // PUT /api/v1/careers/{id} (actualizar) - Solo ADMIN
                         .requestMatchers("PUT", "/api/v1/careers/**").hasRole("ADMIN")
-
-                        // DELETE /api/v1/careers/{id} (eliminar) - Solo ADMIN
                         .requestMatchers("DELETE", "/api/v1/careers/**").hasRole("ADMIN")
 
-                        // ========================================
-                        // SPECIALIZATIONS - Solo UNIVERSITY_STUDENT
-                        // ========================================
+                        // Specializations - Solo UNIVERSITY_STUDENT
                         .requestMatchers("/api/v1/specializations/**").hasRole("UNIVERSITY_STUDENT")
 
-                        // ========================================
-                        // EVALUATIONS - Solo UNIVERSITY_STUDENT
-                        // ========================================
+                        // Evaluations - Solo UNIVERSITY_STUDENT
                         .requestMatchers("/api/v1/evaluations/**").hasRole("UNIVERSITY_STUDENT")
 
-                        // ========================================
-                        // FAVORITE CAREERS - Solo UNIVERSITY_STUDENT
-                        // ========================================
+                        // Favorite Careers - Solo UNIVERSITY_STUDENT
                         .requestMatchers("/api/v1/favorite-careers/**").hasRole("UNIVERSITY_STUDENT")
 
-                        // ========================================
-                        // FAVORITE SPECIALIZATIONS - Solo UNIVERSITY_STUDENT
-                        // ========================================
+                        // Favorite Specializations - Solo UNIVERSITY_STUDENT
                         .requestMatchers("/api/v1/favorite-specializations/**").hasRole("UNIVERSITY_STUDENT")
 
-                        // ========================================
-                        // TESTS (Admin) - Solo ADMIN
-                        // ========================================
+                        // Tests (Admin) - Solo ADMIN
                         .requestMatchers("/api/v1/tests/**").hasRole("ADMIN")
 
-                        // ========================================
-                        // TODOS LOS DEMÁS: Autenticado
-                        // ========================================
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -106,11 +74,7 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
-                // ========================================
-                // MANEJO DE EXCEPCIONES
-                // ========================================
                 .exceptionHandling(exceptions -> exceptions
-                        // 401 - No autenticado (sin token o token inválido)
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json");
@@ -121,7 +85,6 @@ public class SecurityConfig {
                             ));
                         })
 
-                        // 403 - Autenticado pero sin permisos (rol incorrecto)
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setStatus(HttpStatus.FORBIDDEN.value());
                             response.setContentType("application/json");
@@ -139,12 +102,36 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"
+        ));
+
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
+        ));
+
+        configuration.setExposedHeaders(Arrays.asList(
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials",
+                "Authorization"
+        ));
+
+        configuration.setAllowCredentials(true);
+
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }
