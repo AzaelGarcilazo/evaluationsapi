@@ -24,33 +24,48 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         final String securitySchemeName = "bearerAuth";
 
+        // ✅ Detectar automáticamente si estamos en producción o desarrollo
+        String productionUrl = System.getenv("RENDER_EXTERNAL_HOSTNAME");
+        boolean isProduction = productionUrl != null && !productionUrl.isEmpty();
+
+        List<Server> servers;
+        if (isProduction) {
+            // En producción (Render)
+            servers = List.of(
+                    new Server()
+                            .url("https://" + productionUrl)
+                            .description("Production (Render)")
+            );
+        } else {
+            // En desarrollo local
+            servers = List.of(
+                    new Server()
+                            .url("http://localhost:" + serverPort)
+                            .description("Local Development")
+            );
+        }
+
         return new OpenAPI()
                 .info(new Info()
                         .title("EvaluationsAPI - CareerCompass")
                         .version("1.0.0")
-                        .description("Microservicio de evaluaciones vocacionales, tests psicométricos, carreras y especializaciones - Sistema Orientador Vocacional Inteligente")
+                        .description("API REST para evaluaciones vocacionales")
                         .contact(new Contact()
                                 .name("CareerCompass Team")
-                                .email("support@careercompass.com"))
-                        .license(new License()
-                                .name("MIT License")
-                                .url("https://opensource.org/licenses/MIT")))
-                .servers(List.of(
-                        new Server()
-                                .url("http://localhost:" + serverPort)
-                                .description("Development Server - EvaluationsAPI"),
-                        new Server()
-                                .url("https://api.careercompass.com/evaluations")
-                                .description("Production Server - EvaluationsAPI")
-                ))
+                                .email("support@careercompass.com")))
+
+                // ✅ Usar los servidores detectados automáticamente
+                .servers(servers)
+
                 .addSecurityItem(new SecurityRequirement()
                         .addList(securitySchemeName))
+
                 .components(new Components()
                         .addSecuritySchemes(securitySchemeName, new SecurityScheme()
                                 .name(securitySchemeName)
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")
-                                .description("Ingrese el token JWT obtenido del UsersAPI (/api/v1/auth/login)")));
+                                .description("Ingrese el token JWT (sin 'Bearer', solo el token)")));
     }
 }
